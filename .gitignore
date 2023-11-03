@@ -119,6 +119,10 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# Models
+model.json
+challenge.md
+
 # Environments
 .env
 .venv
