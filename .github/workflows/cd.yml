@@ -35,7 +35,11 @@ jobs:
     - name: Login to Google Cloud Registry
       run: cat gcp-key.json | docker login -u _json_key --password-stdin https://gcr.io
 
-    - name: Get latest git tag and increment version
+    - name: Remove GCP key file
+      if: always()
+      run: rm -f gcp-key.json
+      
+    - name: Calculate new version tag
       id: versioning
       run: |
         latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` 2>/dev/null || echo "v0.0.0")
@@ -63,7 +67,6 @@ jobs:
         # Set the new tag as an output variable to use in subsequent steps
         echo "new_tag=$new_tag" >> $GITHUB_ENV
       shell: bash
-
   
     - name: Build and Push Docker image
       run: |
