@@ -35,16 +35,7 @@ jobs:
     - name: Login to Google Cloud Registry
       run: cat gcp-key.json | docker login -u _json_key --password-stdin https://gcr.io
 
-    - name: Remove GCP key file
-      if: always()
-      run: rm -f gcp-key.json
-
-    - name: Build and Push Docker image
-      run: |
-        docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA .
-        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA
-
-    - name: Calculate new version tag
+    - name: Get latest git tag and increment version
       id: versioning
       run: |
         latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` 2>/dev/null || echo "v0.0.0")
@@ -74,10 +65,13 @@ jobs:
       shell: bash
 
   
-    # This is where you could add a step to tag the image as ready for release,
-    # for example, tagging it with "latest" or a version number
+    - name: Build and Push Docker image
+      run: |
+        docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA .
+        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA
+
     - name: Tag Image as Ready for Release
       run: |
-        new_tag=${{ steps.versioning.outputs.new_tag }}
-        docker tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$new_tag
-        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$new_tag
+        echo "Tagging image with ${new_tag}"
+        docker tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:${new_tag}
+        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:${new_tag}
