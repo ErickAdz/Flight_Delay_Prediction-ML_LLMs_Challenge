@@ -12,6 +12,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        # Fetches all history for all tags and branches
+        fetch-depth: '0'  
+
 
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v0
@@ -40,28 +44,35 @@ jobs:
         docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA .
         docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA
 
-    - name: Get latest git tag and increment version
+    - name: Calculate new version tag
       id: versioning
       run: |
-        # Get latest tag
-        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` 2>/dev/null || echo "v0.0.0")
+
+        echo "Latest tag: $latest_tag"
         
-        # If there are no tags yet, start with v0.0.0
-        if [ -z "$latest_tag" ]; then
-          echo "No tags found. Starting with v0.0.0"
-          latest_tag="v0.0.0"
+        # Assume the tag is in the form v0.0.0 (semantic versioning)
+        major=$(echo "$latest_tag" | cut -d '.' -f 1 | sed 's/v//')
+        minor=$(echo "$latest_tag" | cut -d '.' -f 2)
+        patch=$(echo "$latest_tag" | cut -d '.' -f 3)
+
+        if [[ -z "$patch" ]]; then
+          # If there was no patch level, then this must be a zero tag
+          patch=0
         fi
-        
-        # Split the tag into an array [ 'v', 'major', 'minor', 'patch' ]
-        tag_parts=(${latest_tag//./ })
-        
+
         # Increment the patch version
-        patch_version=$((${tag_parts[2]//v/}+1))
-        new_tag="v${tag_parts[1]}.${tag_parts[2]}.${patch_version}"
+        new_patch=$(($patch + 1))
+
+        # Form the new tag
+        new_tag="v$major.$minor.$new_patch"
+        
+        echo "New tag: $new_tag"
         
         # Set the new tag as an output variable to use in subsequent steps
-        echo ::set-output name=new_tag::$new_tag
+        echo "new_tag=$new_tag" >> $GITHUB_ENV
       shell: bash
+
   
     # This is where you could add a step to tag the image as ready for release,
     # for example, tagging it with "latest" or a version number
