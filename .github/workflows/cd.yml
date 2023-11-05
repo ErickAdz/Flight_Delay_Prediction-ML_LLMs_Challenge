@@ -38,35 +38,41 @@ jobs:
     - name: Remove GCP key file
       if: always()
       run: rm -f gcp-key.json
-      
-    - name: Calculate new version tag
-      id: versioning
-      run: |
-        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` 2>/dev/null || echo "v0.0.0")
 
-        echo "Latest tag: $latest_tag"
+    # - name: Calculate new version tag
+    #   id: versioning
+    #   run: |
+    #     latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` 2>/dev/null || echo "v0.0.0")
+
+    #     echo "Latest tag: $latest_tag"
         
-        # Assume the tag is in the form v0.0.0 (semantic versioning)
-        major=$(echo "$latest_tag" | cut -d '.' -f 1 | sed 's/v//')
-        minor=$(echo "$latest_tag" | cut -d '.' -f 2)
-        patch=$(echo "$latest_tag" | cut -d '.' -f 3)
+    #     # Assume the tag is in the form v0.0.0 (semantic versioning)
+    #     major=$(echo "$latest_tag" | cut -d '.' -f 1 | sed 's/v//')
+    #     minor=$(echo "$latest_tag" | cut -d '.' -f 2)
+    #     patch=$(echo "$latest_tag" | cut -d '.' -f 3)
 
-        if [[ -z "$patch" ]]; then
-          # If there was no patch level, then this must be a zero tag
-          patch=0
-        fi
+    #     if [[ -z "$patch" ]]; then
+    #       # If there was no patch level, then this must be a zero tag
+    #       patch=0
+    #     fi
 
-        # Increment the patch version
-        new_patch=$(($patch + 1))
+    #     # Increment the patch version
+    #     new_patch=$(($patch + 1))
 
-        # Form the new tag
-        new_tag="v$major.$minor.$new_patch"
+    #     # Form the new tag
+    #     new_tag="v$major.$minor.$new_patch"
         
-        echo "New tag: $new_tag"
+    #     echo "New tag: $new_tag"
         
-        # Set the new tag as an output variable to use in subsequent steps
-        echo "new_tag=$new_tag" >> $GITHUB_ENV
-      shell: bash
+    #     # Set the new tag as an output variable to use in subsequent steps
+    #     echo "new_tag=$new_tag" >> $GITHUB_ENV
+    #   shell: bash
+
+    # - name: Tag Image as with current version
+    #   run: |
+    #     echo "Tagging image with ${new_tag}"
+    #     docker tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:${new_tag}
+    #     docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:${new_tag}
   
     - name: Build and Push Docker image
       run: |
@@ -76,5 +82,5 @@ jobs:
     - name: Tag Image as Ready for Release
       run: |
         echo "Tagging image with ${new_tag}"
-        docker tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:${new_tag}
-        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:${new_tag}
+        docker tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:ready
+        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:ready
