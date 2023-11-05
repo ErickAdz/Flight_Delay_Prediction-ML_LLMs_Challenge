@@ -1,0 +1,61 @@
+name: 'Continuous Delivery'
+
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v0
+      with:
+        version: 'latest'
+        project-id: ${{ secrets.GCP_PROJECT_ID }}
+        service-account-key: ${{ secrets.GCP_SA_KEY }}
+        export-default-credentials: true
+
+    - name: Configure Docker
+      run: gcloud auth configure-docker
+
+    - name: Build and Push Docker image
+      run: |
+        docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA .
+        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA
+
+    - name: Get latest git tag and increment version
+      id: versioning
+      run: |
+        # Get latest tag
+        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+        
+        # If there are no tags yet, start with v0.0.0
+        if [ -z "$latest_tag" ]; then
+          echo "No tags found. Starting with v0.0.0"
+          latest_tag="v0.0.0"
+        fi
+        
+        # Split the tag into an array [ 'v', 'major', 'minor', 'patch' ]
+        tag_parts=(${latest_tag//./ })
+        
+        # Increment the patch version
+        patch_version=$((${tag_parts[2]//v/}+1))
+        new_tag="v${tag_parts[1]}.${tag_parts[2]}.${patch_version}"
+        
+        # Set the new tag as an output variable to use in subsequent steps
+        echo ::set-output name=new_tag::$new_tag
+      shell: bash
+  
+    # This is where you could add a step to tag the image as ready for release,
+    # for example, tagging it with "latest" or a version number
+    - name: Tag Image as Ready for Release
+      run: |
+        new_tag=${{ steps.versioning.outputs.new_tag }}
+        docker tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$GITHUB_SHA gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$new_tag
+        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/fastapp:$new_tag
