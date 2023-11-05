@@ -31,6 +31,9 @@ jobs:
     - name: Login to Google Cloud Registry
       run: cat gcp-key.json | docker login -u _json_key --password-stdin https://gcr.io
 
+    - name: Remove GCP key file
+      if: always()
+      run: rm -f gcp-key.json
 
     - name: Build and Push Docker image
       run: |
