@@ -1,44 +1,39 @@
 from pathlib import Path
+import joblib
 import pandas as pd
-
-from challenge.features import data_agregator
-# from features import data_agregator
-from typing import Tuple, Union, List
 from sklearn.model_selection import train_test_split
-from sklearn.utils import shuffle
+from xgboost import XGBClassifier
+from typing import Tuple, Union, List
+import joblib
+from challenge.features import data_agregator
+from pathlib import Path
+import pandas as pd
+from sklearn.model_selection import train_test_split
 import xgboost as xgb
-
 
 class DelayModel:
     
-    MODEL_ROOT_PATH = str(Path(__file__).parent / "model.json")
+    MODEL_ROOT_PATH = str(Path(__file__).parent / "model.pkl")
 
     top_10_features = [
-    "OPERA_Latin American Wings", 
-    "MES_7",
-    "MES_10",
-    "OPERA_Grupo LATAM",
-    "MES_12",
-    "TIPOVUELO_I",
-    "MES_4",
-    "MES_11",
-    "OPERA_Sky Airline",
-    "OPERA_Copa Air"
+        "OPERA_Latin American Wings", 
+        "MES_7",
+        "MES_10",
+        "OPERA_Grupo LATAM",
+        "MES_12",
+        "TIPOVUELO_I",
+        "MES_4",
+        "MES_11",
+        "OPERA_Sky Airline",
+        "OPERA_Copa Air"
     ]
 
-    def __init__(
-        self
-    ):
+    def __init__(self):
         self._model = xgb.XGBClassifier(random_state=1, learning_rate=0.01)
 
-
-    def preprocess(
-        self,
-        data: pd.DataFrame,
-        target_column: str = None
-    ) -> Union[Tuple[pd.DataFrame, pd.DataFrame], pd.DataFrame]:
+    def preprocess(self, data: pd.DataFrame, target_column: str = None) -> Union[Tuple[pd.DataFrame, pd.DataFrame], pd.DataFrame]:
         """
-        Prepare raw data for training or predict.
+        Prepare raw data for training or prediction.
 
         Args:
             data (pd.DataFrame): raw data.
@@ -49,31 +44,38 @@ class DelayModel:
             or
             pd.DataFrame: features.
         """
-        data = data_agregator(data)
-        training_data = shuffle(data[['OPERA', 'MES', 'TIPOVUELO', 'SIGLADES', 'DIANOM', 'delay']], random_state = 111)
-        features = pd.concat([
-                                pd.get_dummies(training_data['OPERA'], prefix = 'OPERA'),
-                                pd.get_dummies(training_data['TIPOVUELO'], prefix = 'TIPOVUELO'), 
-                                pd.get_dummies(training_data['MES'], prefix = 'MES')], 
-                                axis = 1
-                                )
-        
+        # Check if we're in training mode (target_column is provided)
         if target_column is not None:
-            # Returning target as a DataFrame
-            target = training_data[target_column]
-            target_fail = training_data[[target_column]]
+            # Apply data aggregator which also handles the target column
+            data = data_agregator(data)
 
-            return features[self.top_10_features], target_fail
+            # Ensure the categorical features are one-hot encoded
+            data_encoded = pd.get_dummies(data, columns=['OPERA', 'TIPOVUELO', 'MES'])
+            
+            # Extract the target
+            target = data_encoded[[target_column]]
+
         else:
-            return features[self.top_10_features]
+            # For prediction, assume data is already preprocessed and just needs one-hot encoding
+            # Ensure the categorical features are one-hot encoded
+            data_encoded = pd.get_dummies(data, columns=['OPERA', 'TIPOVUELO', 'MES'])
+
+        # Align the features of the input data with the trained model's features
+        features = pd.DataFrame(columns=self.top_10_features)
+        for feature in self.top_10_features:
+            if feature in data_encoded:
+                features[feature] = data_encoded[feature]
+            else:
+                features[feature] = 0
+
+        # Return the processed features and target for training, or just features for prediction
+        if target_column is not None:
+            return features, target
+        else:
+            return features
 
 
-
-    def fit(
-        self,
-        features: pd.DataFrame,
-        target: pd.DataFrame
-    ) -> None:
+    def fit(self, features: pd.DataFrame, target: pd.DataFrame) -> None:
         """
         Fit model with preprocessed data.
 
@@ -81,25 +83,18 @@ class DelayModel:
             features (pd.DataFrame): preprocessed data.
             target (pd.DataFrame): target.
         """
+        x_train, x_test, y_train, y_test = train_test_split(features, target.squeeze(), test_size=0.33, random_state=42)
         
-        x_train, _ , y_train, _ = train_test_split(features, target.squeeze(), test_size = 0.33, random_state = 42)
-
-        n_y0 = len(y_train[y_train == 0])
-        n_y1 = len(y_train[y_train == 1])
-        scale = n_y0/n_y1  
-
+        # Scaling the positive class (assuming binary classification and positive class is 1)
+        scale = y_train.value_counts()[0] / y_train.value_counts()[1]
+        
         self._model.set_params(scale_pos_weight=scale)
         self._model.fit(x_train, y_train)
-        
-        print(self.MODEL_ROOT_PATH)
 
-        self._model.save_model(self.MODEL_ROOT_PATH)
+        # Save the model
+        joblib.dump(self._model, self.MODEL_ROOT_PATH)
 
-
-    def predict(
-        self,
-        features: pd.DataFrame
-    ) -> List[int]:
+    def predict(self, features: pd.DataFrame) -> List[int]:
         """
         Predict delays for new flights.
 
@@ -107,11 +102,13 @@ class DelayModel:
             features (pd.DataFrame): preprocessed data.
         
         Returns:
-            (List[int]): predicted targets.
+            List[int]: predicted targets.
         """
-        self._model.load_model(self.MODEL_ROOT_PATH)
+        # Load the model
+        loaded_model = joblib.load(self.MODEL_ROOT_PATH)
 
-        predictions = self._model.predict(features)
+        # Make predictions
+        predictions = loaded_model.predict(features)
         predictions = [1 if y_pred > 0.5 else 0 for y_pred in predictions]
 
         return predictions

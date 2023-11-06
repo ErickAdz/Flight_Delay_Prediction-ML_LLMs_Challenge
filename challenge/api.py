@@ -14,7 +14,7 @@ async def root():
     """
     Root GET
     """
-    return responses.FileResponse("../index.html") 
+    return {"message": "Welcome to Delay Model API"}
 
 @app.get("/health", status_code=200)
 async def get_health() -> dict:
@@ -38,8 +38,6 @@ async def post_predict(data: dict) -> dict:
         # Preprocess the DataFrame to handle object columns
         # You may need to one-hot encode or convert categorical columns
         features = delay_model.preprocess(features)
-
-        print("at least the problem is not here, wich is worse thinkin about it .-.  ", features)
 
         # Call the predict method on the DelayModel instance
         predictions = delay_model.predict(features)
