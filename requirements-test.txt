@@ -4,3 +4,5 @@ pytest~=6.2.5
 pytest-cov~=2.12.1
 mockito~=1.2.2
 Flask>=2.2.2
+anyio==4.0.0
+starlette==0.14.2
