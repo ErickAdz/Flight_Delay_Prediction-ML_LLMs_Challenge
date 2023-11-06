@@ -13,7 +13,7 @@ import xgboost as xgb
 
 class DelayModel:
     
-    MODEL_ROOT_PATH = str(Path(__file__).parent / "model.json")
+    MODEL_ROOT_PATH = str(Path(__file__).parent / "model.pkl")
 
     top_10_features = [
         "OPERA_Latin American Wings", 
