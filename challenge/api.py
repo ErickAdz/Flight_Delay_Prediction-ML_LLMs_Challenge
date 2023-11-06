@@ -22,7 +22,7 @@ async def get_health() -> dict:
         "status": "OK"
     }
 
-@app.post("/predict", status_code=200)
+@app.post("/predict")
 async def post_predict(data: dict) -> dict:
     """
     Endpoint for making predictions using the DelayModel.
@@ -32,20 +32,32 @@ async def post_predict(data: dict) -> dict:
         # Convert the "flights" list from the input data into the required format
         flights = data.get("flights", [])
 
+        # Validation for "TIPOVUELO" and "MES" in each flight
+        for flight in flights:
+            tipo_vuelo = flight.get("TIPOVUELO")
+            month = flight.get("MES", 0)
+
+            # Check "TIPOVUELO"
+            if tipo_vuelo not in ("N", "I"):
+                raise HTTPException(status_code=400, detail="Invalid 'TIPOVUELO' value. Must be 'N' or 'I'.")
+
+            # Check "MONTH"
+            if not (1 <= month <= 12):
+                raise HTTPException(status_code=400, detail="Invalid 'MONTH' value. Must be an integer from 1 to 12.")
+        
         # Create a DataFrame with the input data for the predict method
         features = pd.DataFrame(flights)
 
-        # Preprocess the DataFrame to handle object columns
-        # You may need to one-hot encode or convert categorical columns
         features = delay_model.preprocess(features)
-
-        # Call the predict method on the DelayModel instance
         predictions = delay_model.predict(features)
 
         # Prepare the response
-        response = {"predictions": predictions}
+        response = {"predict": predictions}
 
         return response
+
+    except HTTPException as http_exc:
+        # Reraise the HTTPException without modifying it
+        raise http_exc
     except Exception as e:
-        # Handle any exceptions or errors
         raise HTTPException(status_code=500, detail=f"Prediction error: {e}")
