@@ -2,6 +2,6 @@
 # seaborn~=0.12.2
 # xgboost~=2.0.1
 
-matplotlib==3.7.3
-seaborn==0.12.2
-xgboost==2.0.1
+matplotlib~=3.7.3
+seaborn~=0.12.2
+xgboost~=2.0.1
